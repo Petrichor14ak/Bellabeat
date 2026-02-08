@@ -32,15 +32,20 @@ library(scales)
 
 I will then import the data. I downloaded the data from the dataset available on Kaggle and then used the RStudio app on my desktop computer. I renamed the files to be easier to read.
 
+
+
+
 ```{r}
-daily_activity <- dailyActivity_mergedApril
-daily_steps <- dailySteps_merged
-daily_sleep <- sleepDay_merged
-hourly_steps <- hourlySteps_merged
-hourly_calories <- hourlyCalories_merged
-hourly_intensities <- hourlyIntensities_merged
-weight <- weightLogInfo_merged
-met_narrow <- minuteMETsNarrow_merged
+daily_activity <- read.csv("dailyActivity_mergedApril.csv", header = TRUE)
+daily_steps <- read.csv("dailySteps_merged.csv", header  = TRUE)
+daily_sleep <- read.csv("sleepDay_merged.csv", header = TRUE)
+hourly_steps <- read.csv("hourlySteps_merged.csv", header = TRUE)
+hourly_calories <- read.csv("hourlyCalories_merged.csv", header = TRUE)
+hourly_intensities <- read.csv("hourlyIntensities_merged.csv", header = TRUE)
+weightLogInfo_merged <- read.csv("weightLogInfo_merged.csv", header = TRUE)
+met_narrow <- read.csv("minuteMETsNarrow_merged.csv", header = TRUE)
+daily_activity_sleep_met <- read.csv("daily_activity_sleep_met.csv", header = TRUE)
+totalactivity <- read.csv("totalactivity.csv", header = TRUE)
 ```
 
 I then wanted just a summary of the data I was looking at before beginning clean it.
@@ -106,6 +111,8 @@ hourly_calories <- hourly_calories %>%
   separate(activityhour, c("date", "time"), " ")
 daily_activity <- daily_activity %>%
   rename(date = activitydate)
+daily_steps <- daily_steps %>%
+  rename(date = activityday)
 met_narrow <- met_narrow %>%
   separate(activityminute, c("date", "time"), " ")
 ```
@@ -150,6 +157,9 @@ weight <- weight %>%
 met_narrow <- met_narrow %>%
   distinct() %>%
   drop_na()
+totalactivity <- totalactivity %>%
+  distinct() %>%
+  drop_na()
 ```
 
 I then merged daily activity with daily sleep and the infomration about mets.
@@ -157,12 +167,28 @@ I then merged daily activity with daily sleep and the infomration about mets.
 ```{r}
 daily_activity_sleep_mets <- merge(daily_activity_sleep_met, met_narrow, by=c ("id", "date"))
 ```
+And then I need to change the date format to be in a more conventional form.
+
+```{r}
+daily_activity_sleep_mets <- daily_activity_sleep_mets %>%
+  mutate(date = as_date(date, format = "%m/%d/%Y"))
+daily_steps <- daily_steps %>%
+  mutate(date = as_date(date, format = "%m/%d/%Y"))
+daily_sleep <- daily_sleep %>%
+  mutate(date = as_date(date, format = "%m/%d/%Y"))
+```
 
 After merging, I also wanted to be able to see what day, and not just date, everything was occuring on.  Maybe being able to analyze if the devices were used during the week or the weekend would be helpful information.
 
 ```{r}
 daily_activity_sleep_mets <-
   daily_activity_sleep_mets %>%
+  mutate(day = wday(date, label = TRUE, abbr = FALSE), .after = date)
+daily_steps <-
+  daily_steps %>%
+  mutate(day = wday(date, label = TRUE, abbr = FALSE), .after = date)
+daily_sleep <-
+  daily_sleep %>%
   mutate(day = wday(date, label = TRUE, abbr = FALSE), .after = date)
 ```
 
@@ -206,23 +232,39 @@ ggplot(data = daily_activity_sleep_mets, mapping = aes(x = totalsteps, y = calor
   geom_jitter() + labs(title = "Total Steps vs. Calories")
 ```
 
+I wanted to know what days people were achieving the recommended number of steps.
+
 ```{r}
-ggplot(data = totalactivity, aes(day, steptotal)) +
-  geom_col(fill = "purple") +
-  geom_hline(yintercept = 7000) +
-  labs(title = "Total Steps per Day", x = "", y = "") +
-  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust = 1)) +
-  scale_y_continuous(limits = c(0, 20000))
+daily_steps <- daily_steps %>%
+  group_by(day) %>%
+  summarize(daily_steps = mean(steptotal))
 ```
 
 ```{r}
-ggplot(totalactivity, aes(day, totalminutesasleep)) +
+ggplot(daily_steps, aes(day, daily_steps)) +
   geom_col(fill = "pink") +
-  geom_hline(yintercept = 480) +
-  labs(title = "Minutes Asleep per Day", x="", y="") +
-  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust = 1)) +
-  scale_y_continuous(limits = c(0, 500))
+  geom_hline(yintercept = 7000) +
+  labs(title = "Steps per Day", x="",y="") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust = 1))
 ```
+
+
+```{r}
+daily_sleep <- daily_sleep %>%
+  group_by(day) %>%
+  summarize(daily_sleep = mean(totalminutesasleep))
+```
+
+
+```{r}
+ggplot(daily_sleep, aes(day, daily_sleep)) +
+  geom_col(fill = "red") +
+  geom_hline(yintercept = 480) +
+  labs(title = "Minutes Asleep per Day", x="",y="") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust = 1))
+```
+
+
 
 Act
 Conclusion
